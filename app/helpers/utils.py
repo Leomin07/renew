@@ -1,4 +1,4 @@
-from app.core.config import setting
+from app.core import config
 
 
 async def common_params(
@@ -7,5 +7,5 @@ async def common_params(
     return {"pageSize": pageSize, "pageIndex": pageIndex, "search": search}
 
 
-def generate_key(user_id: int, end_point: str | None = None):
-    return f"{setting.APP_NAME}_USER_ID:{user_id}_{end_point}"
+def generate_key(member_id: int, end_point: str | None = None):
+    return f"{config.APP_NAME}_MEMBER_ID:{member_id}_{end_point}"

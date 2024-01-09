@@ -1,16 +1,17 @@
 from fastapi import HTTPException, status
-from loguru import logger
-from sqlalchemy import and_
-from sqlalchemy.orm import Session
-from app.core import config
 
+from sqlmodel import Session, select
+from app.core import config
+from sqlalchemy.orm import load_only
 from app.core.security import (
     generate_access_token,
     generate_refresh_token,
     hash_password,
     verify_password,
+    verify_refresh_access,
 )
 from app.db.models import member_model
+from app.db.models.member_model import Member
 from app.helpers.enum import CommonStatus, ErrorMessage, TokenType
 from app.apis.auth.auth_schema import (
     login_schema,
@@ -20,13 +21,13 @@ from app.apis.auth.auth_schema import (
 
 
 def check_email_duplicate(email: str, db: Session):
-    obj = (
-        db.query(member_model.Member.id, member_model.Member.email)
-        .filter_by(email=email)
-        .first()
-    )
+    member = db.exec(
+        select(Member)
+        .options(load_only(Member.id, Member.email, Member.status))
+        .where(Member.email == email)
+    ).first()
 
-    if obj:
+    if member:
         raise HTTPException(
             detail=ErrorMessage.Email_Already_Exist,
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -45,18 +46,18 @@ def generate_token(member_id: int):
 
 
 def check_username(username: str, db: Session):
-    member = (
-        db.query(member_model.Member.id, member_model.Member.username)
-        .filter_by(username=username)
-        .first()
-    )
+    member = db.exec(
+        select(Member)
+        .options(load_only(Member.id, Member.username, Member.status))
+        .where(Member.username == username)
+    ).first()
     if member:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=ErrorMessage.USERNAME_ALREADY,
         )
 
-    return member
+    return
 
 
 def register(db: Session, params: register_schema):
@@ -72,30 +73,23 @@ def register(db: Session, params: register_schema):
 
     token = generate_token(int(new_member.id))
 
-    db.query(member_model.Member).filter_by(id=new_member.id).update(
-        {"refresh_token": token["refresh_token"]}
-    )
+    # update refresh_token
+    new_member.refresh_token = token["refresh_token"]
+    db.add(new_member)
     db.commit()
-
+    db.refresh(new_member)
     return token
 
 
 def login(db: Session, params: login_schema):
-    member = (
-        db.query(
-            member_model.Member.id,
-            member_model.Member.username,
-            member_model.Member.status,
-            member_model.Member.password,
+    member = db.exec(
+        select(Member)
+        .options(load_only(Member.id, Member.username, Member.status, Member.password))
+        .where(
+            Member.username == params.username,
         )
-        .filter(
-            and_(
-                member_model.Member.username == params.username,
-                member_model.Member.status == CommonStatus.ACTIVE,
-            )
-        )
-        .first()
-    )
+        .where(Member.status == CommonStatus.ACTIVE)
+    ).first()
 
     if member is None:
         raise HTTPException(
@@ -103,7 +97,7 @@ def login(db: Session, params: login_schema):
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
 
-    if not verify_password(params.password, member.password) == True:
+    if verify_password(params.password, member.password) != True:
         raise HTTPException(
             detail=ErrorMessage.Password_Not_Match,
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -111,20 +105,22 @@ def login(db: Session, params: login_schema):
 
     token = generate_token(int(member.id))
 
-    db.query(member_model.Member).filter_by(id=member.id).update(
-        {"refresh_token": token["refresh_token"]}
-    )
+    member.refresh_token = token["refresh_token"]
+    db.add(member)
     db.commit()
+    db.refresh(member)
 
     return token
 
 
 def refresh_token(params: refresh_token_schema, db: Session):
-    member = (
-        db.query(member_model.Member.id, member_model.Member.refresh_token)
-        .where(member_model.Member.refresh_token == params.refresh_token)
-        .first()
-    )
+    payload = verify_refresh_access(params.refresh_token)
+
+    member = db.exec(
+        select(Member)
+        .options(load_only(Member.id, Member.refresh_token))
+        .where(Member.id == payload["member_id"])
+    ).first()
 
     if member is None:
         raise HTTPException(
@@ -132,11 +128,15 @@ def refresh_token(params: refresh_token_schema, db: Session):
             detail="Refresh token is expired",
         )
 
+    if member.refresh_token != params.refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Refresh token in valid"
+        )
+
     token = generate_token(int(member.id))
 
-    db.query(member_model.Member).filter_by(id=member.id).update(
-        {"refresh_token": token["refresh_token"]}
-    )
+    member.refresh_token = token["refresh_token"]
+    db.add(member)
     db.commit()
-
+    db.refresh(member)
     return token

@@ -23,24 +23,24 @@ alembic downgrade -1
 alembic history
 """
 from datetime import datetime
+from typing import Optional
+from sqlalchemy import Column, SmallInteger
 
-from sqlalchemy import BigInteger, Column, DateTime, SmallInteger
+from sqlmodel import Field, SQLModel, text
 
-from app.db.init_db import Base
 from app.helpers.enum import CommonStatus
 
 
-class InitModel(Base):
-    __abstract__ = True
-
-    id = Column(BigInteger, primary_key=True, index=True)
-    status = Column(
-        SmallInteger,
+class InitModel(SQLModel):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    status: int = Field(
         default=CommonStatus.ACTIVE,
-        comment="INACTIVE = 0, ACTIVE = 1, PENDING = 2",
+        description="INACTIVE = 0, ACTIVE = 1, PENDING = 2",
         nullable=False,
+        index=True,
     )
-    createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updatedAt = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    created_at: datetime = Field(nullable=False, default=datetime.now())
+    updated_at: datetime = Field(
+        nullable=False,
+        default=datetime.now(),
     )

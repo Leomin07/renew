@@ -1,9 +1,5 @@
-from typing import Annotated
-from fastapi import APIRouter, Depends, Header
-from fastapi.security import OAuth2PasswordBearer
-from app.apis.deps import CurrentUser, SessionDep
-from app.core import config
-from app.core.security import get_current_user
+from fastapi import APIRouter
+from app.apis.deps import CurrentMember, SessionDep
 
 
 from app.db.init_db import get_db
@@ -14,6 +10,5 @@ router = APIRouter()
 
 
 @router.get("/me")
-def get_profile(payload: Annotated[str, Header()], session: SessionDep):
-    # return member_service.get_profile(session, payload["member_id"])
-    return payload
+def get_profile(payload: CurrentMember, session: SessionDep):
+    return member_service.get_profile(session, payload["member_id"])

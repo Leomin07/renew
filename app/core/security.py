@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import time
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, status
@@ -7,12 +8,10 @@ from jose import JWTError, jwt
 from loguru import logger
 from passlib.context import CryptContext
 from pydantic import ValidationError
-from sqlalchemy import and_
 
 from app.core import config
-from app.db.init_db import get_db
-from app.db.models import member_model
-from app.helpers.enum import CommonStatus, ErrorMessage, TokenType
+from app.helpers.enum import ErrorMessage, TokenType
+import moment
 
 
 def generate_access_token(data: dict):
@@ -46,31 +45,26 @@ def generate_refresh_token(data: dict):
     return encoded_jwt
 
 
-def verify_refresh_access(token: str, credentials_exception):
+def verify_refresh_access(token: str):
     try:
         payload: Any = jwt.decode(token, config.SECRET_KEY, config.ALGORITHM)
         token_type: TokenType = payload.get("token_type")
-        # checking token expire
-        if (
-            datetime.strptime(payload.get("exp"), "%Y-%m-%d %H:%M:%S")
-            < datetime.utcnow()
-        ):
+        if payload.get("exp") < time.time():
             raise HTTPException(
                 detail=ErrorMessage.Token_Expire,
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=status.HTTP_403_FORBIDDEN,
             )
 
         if token_type != TokenType.REFRESH_TOKEN:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=ErrorMessage.Unauthorized,
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Refresh toke in valid",
             )
-
-    except JWTError as e:
-        logger.error(e)
-        raise credentials_exception
-
-    return True
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Refresh token expired"
+        )
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -84,32 +78,10 @@ def verify_password(non_hashed_pass, hashed_pass):
     return pwd_context.verify(non_hashed_pass, hashed_pass)
 
 
-def verify_token_access(token: str, credentials_exception):
-    try:
-        payload: Any = jwt.decode(token, config.SECRET_KEY, config.ALGORITHM)
-        token_type: TokenType = payload.get("token_type")
-        # checking token expire
-        if datetime.strptime(payload.get("exp")) < datetime.utcnow():
-            raise HTTPException(
-                detail=ErrorMessage.Token_Expire,
-                status_code=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        if token_type != TokenType.ACCESS_TOKEN:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=ErrorMessage.Unauthorized,
-            )
-
-    except JWTError as e:
-        logger.error(e)
-        raise credentials_exception
-
-    return True
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{config.APP_V1_STR}/auth/login")
 
 
-async def get_current_user(token: str):
-    return token
+async def get_current_member(token: Annotated[str, Depends(oauth2_scheme)]):
     try:
         payload = jwt.decode(token, config.SECRET_KEY, algorithms=[config.ALGORITHM])
 

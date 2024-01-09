@@ -1,23 +1,19 @@
 from sqlalchemy import Column, SmallInteger, String, null
+from sqlmodel import Field
 from app.db.models.init_model import InitModel
 
-from app.helpers.enum import RoleMember
+from app.helpers.enum import Gender, RoleMember
 
 
-class Member(InitModel):
-    __tablename__ = "member"
-
-    email = Column(String(255), unique=True, index=True, nullable=False)
-    password = Column(
-        String(255),
-        nullable=True,
+class Member(InitModel, table=True):
+    email: str = Field(unique=True, index=True, nullable=True, max_length=255)
+    password: str = Field(nullable=True, max_length=255)
+    phone: str = Field(unique=True, index=True, nullable=True, max_length=10)
+    birthday: str = Field(index=True, nullable=True, description="Birthday")
+    name: str = Field(index=True, description="Full name or name", max_length=255)
+    refresh_token: str = Field(nullable=True, max_length=255)
+    role_id: int = Field(
+        default=RoleMember.MEMBER, description="Role id member", index=True
     )
-    phone = Column(String(255), unique=True, index=True, nullable=True)
-    birthday = Column(String(255), index=True, nullable=True, comment="Birthday")
-    name = Column(String(255), index=True, comment="Full name or name")
-    refresh_token = Column(String(255), nullable=True)
-    role_id = Column(
-        SmallInteger(), default=RoleMember.MEMBER, comment="Role id member", index=True
-    )
-    gender = Column(SmallInteger(), index=True)
-    username = Column(String(255), unique=True, index=True, nullable=False)
+    gender: int = Field(index=True, default=Gender.ALL, nullable=False)
+    username: str = Field(unique=True, index=True, nullable=False, max_length=255)

@@ -15,21 +15,21 @@ from app.apis.auth.auth_schema import (
 router = APIRouter()
 
 
-# @router.post("/register", status_code=status.HTTP_201_CREATED)
-# def register(params: register_schema, session: Session = Depends(get_db)):
-#     return auth_service.register(session, params)
+@router.post("/register", status_code=status.HTTP_201_CREATED)
+def register(params: register_schema, session: SessionDep):
+    return auth_service.register(session, params)
 
 
-# @router.post("/login", status_code=status.HTTP_200_OK)
-# def login(
-#     session: SessionDep, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
-# ):
-#     return auth_service.login(session, form_data)
+@router.post("/login", status_code=status.HTTP_200_OK)
+def login(
+    session: SessionDep, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
+):
+    return auth_service.login(session, form_data)
 
 
-# @router.post("/refresh-token", status_code=status.HTTP_200_OK)
-# def refresh_token(
-#     params: refresh_token_schema,
-#     session: Session = Depends(get_db),
-# ):
-#     return auth_service.refresh_token(params, session)
+@router.post("/refresh-token", status_code=status.HTTP_200_OK)
+def refresh_token(
+    params: refresh_token_schema,
+    session: SessionDep,
+):
+    return auth_service.refresh_token(params, session)

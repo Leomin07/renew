@@ -20,6 +20,5 @@ python-dotenv
 starlette
 marshmallow
 sqlalchemy
-# psycopg2 psycopg2-binary
-fastapi-limiter
-celery
+slowapi
+sqlmodel
