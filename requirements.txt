@@ -1,0 +1,25 @@
+typer[all]
+fastapi[all]
+uvicorn[standard]
+pydantic
+alembic
+security
+python-multipart
+python-jose[cryptography]
+passlib[bcrypt]
+types-python-jose
+types-passlib
+loguru
+redis
+rq
+email-validator
+pydantic-extra-types
+ujson 
+httpx
+python-dotenv
+starlette
+marshmallow
+sqlalchemy
+# psycopg2 psycopg2-binary
+fastapi-limiter
+celery
